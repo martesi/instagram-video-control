@@ -21,18 +21,18 @@ GM_addStyle(`
     }
     .ig-vc-bar {
         position: fixed;
-        height: 40px;
+        height: 44px;
         z-index: 10000;
-        background: linear-gradient(transparent, rgba(0,0,0,0.65));
+        background: linear-gradient(transparent, rgba(0,0,0,0.72));
         display: flex;
         align-items: center;
         gap: 6px;
         padding: 0 10px;
         box-sizing: border-box;
-        font-family: sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.15s ease;
+        transition: opacity 0.2s ease;
         /* Reset popover UA styles when bar is promoted to top layer */
         border: none;
         margin: 0;
@@ -43,38 +43,144 @@ GM_addStyle(`
         opacity: 1;
         pointer-events: auto;
     }
+
+    /* ── Buttons ── */
     .ig-vc-btn {
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 15px;
-        color: #fff;
         padding: 4px;
-        line-height: 1;
+        line-height: 0;
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.15s ease, opacity 0.15s ease;
+        opacity: 0.9;
     }
-    .ig-vc-btn:hover { opacity: 0.75; }
+    .ig-vc-btn:hover {
+        opacity: 1;
+        background: rgba(255,255,255,0.12);
+    }
+    .ig-vc-btn:active {
+        background: rgba(255,255,255,0.2);
+    }
+    .ig-vc-btn svg {
+        width: 18px;
+        height: 18px;
+        fill: #fff;
+        display: block;
+    }
+
+    /* ── Time label ── */
     .ig-vc-time {
-        color: #fff;
+        color: rgba(255,255,255,0.92);
         font-size: 11px;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
         flex-shrink: 0;
+        letter-spacing: 0.02em;
+        user-select: none;
     }
+
+    /* ── Shared slider styles ── */
+    .ig-vc-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+        height: 14px;
+        min-width: 0;
+        outline: none;
+    }
+    /* Track – WebKit */
+    .ig-vc-slider::-webkit-slider-runnable-track {
+        height: 3px;
+        border-radius: 1.5px;
+        background: rgba(255,255,255,0.25);
+        transition: height 0.12s ease;
+    }
+    .ig-vc-slider:hover::-webkit-slider-runnable-track {
+        height: 5px;
+    }
+    /* Track – Firefox */
+    .ig-vc-slider::-moz-range-track {
+        height: 3px;
+        border-radius: 1.5px;
+        background: rgba(255,255,255,0.25);
+        border: none;
+    }
+    .ig-vc-slider:hover::-moz-range-track {
+        height: 5px;
+    }
+    /* Progress fill – Firefox */
+    .ig-vc-slider::-moz-range-progress {
+        height: 3px;
+        border-radius: 1.5px;
+        background: #fff;
+    }
+    .ig-vc-slider:hover::-moz-range-progress {
+        height: 5px;
+    }
+    /* Thumb – WebKit */
+    .ig-vc-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 0px;
+        height: 0px;
+        border-radius: 50%;
+        background: #fff;
+        margin-top: -1px;
+        transition: width 0.12s ease, height 0.12s ease, margin-top 0.12s ease;
+        box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    }
+    .ig-vc-slider:hover::-webkit-slider-thumb {
+        width: 12px;
+        height: 12px;
+        margin-top: -3.5px;
+    }
+    /* Thumb – Firefox */
+    .ig-vc-slider::-moz-range-thumb {
+        width: 0px;
+        height: 0px;
+        border-radius: 50%;
+        background: #fff;
+        border: none;
+        transition: width 0.12s ease, height 0.12s ease;
+        box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    }
+    .ig-vc-slider:hover::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+    }
+
+    /* ── Seek bar ── */
     .ig-vc-seek {
         flex: 3;
-        accent-color: #fff;
-        cursor: pointer;
-        min-width: 0;
     }
+
+    /* ── Volume slider ── */
     .ig-vc-vol {
         flex: 1;
-        accent-color: #fff;
-        cursor: pointer;
-        min-width: 0;
         max-width: 72px;
     }
 `);
+
+// ── SVG icon paths ──────────────────────────────────────────────────────────
+
+function svgIcon(pathD, viewBox = '0 0 24 24') {
+    return `<svg viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg"><path d="${pathD}"/></svg>`;
+}
+
+const ICON = {
+    play:       svgIcon('M8 5v14l11-7z'),
+    pause:      svgIcon('M6 19h4V5H6v14zm8-14v14h4V5h-4z'),
+    volHigh:    svgIcon('M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'),
+    volLow:     svgIcon('M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z'),
+    volMuted:   svgIcon('M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z'),
+    fsEnter:    svgIcon('M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'),
+    fsExit:     svgIcon('M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z'),
+};
 
 // ── muted-property interceptor ──────────────────────────────────────────────
 
@@ -222,6 +328,27 @@ function restoreFromFullscreen(video) {
     delete video._igVcFsState;
 }
 
+// ── slider fill painting ─────────────────────────────────────────────────────
+// WebKit doesn't support ::-moz-range-progress, so we paint the fill via a
+// linear-gradient on the track background. Called on every input/sync.
+
+function paintSliderFill(slider) {
+    const min = parseFloat(slider.min) || 0;
+    const max = parseFloat(slider.max) || 1;
+    const pct = ((parseFloat(slider.value) - min) / (max - min)) * 100;
+    slider.style.setProperty(
+        '--fill',
+        `linear-gradient(to right, #fff ${pct}%, rgba(255,255,255,0.25) ${pct}%)`,
+    );
+}
+
+// Inject one-time WebKit track override that reads the --fill var
+GM_addStyle(`
+    .ig-vc-slider::-webkit-slider-runnable-track {
+        background: var(--fill, rgba(255,255,255,0.25)) !important;
+    }
+`);
+
 // ── control bar ───────────────────────────────────────────────────────────────
 
 function createControlBar(video) {
@@ -235,6 +362,7 @@ function createControlBar(video) {
     // ── elements ──
     const playBtn = document.createElement('button');
     playBtn.className = 'ig-vc-btn';
+    playBtn.title = 'Play / Pause (k)';
     bar.appendChild(playBtn);
 
     const timeEl = document.createElement('span');
@@ -243,38 +371,51 @@ function createControlBar(video) {
 
     const seekBar = document.createElement('input');
     seekBar.type = 'range'; seekBar.min = '0'; seekBar.max = '1'; seekBar.step = '0.001';
-    seekBar.className = 'ig-vc-seek';
+    seekBar.className = 'ig-vc-slider ig-vc-seek';
+    seekBar.value = '0';
     bar.appendChild(seekBar);
 
     const muteBtn = document.createElement('button');
     muteBtn.className = 'ig-vc-btn';
+    muteBtn.title = 'Mute / Unmute (m)';
     bar.appendChild(muteBtn);
 
     const volSlider = document.createElement('input');
     volSlider.type = 'range'; volSlider.min = '0'; volSlider.max = '1'; volSlider.step = '0.02';
-    volSlider.className = 'ig-vc-vol';
+    volSlider.className = 'ig-vc-slider ig-vc-vol';
     bar.appendChild(volSlider);
 
     const fsBtn = document.createElement('button');
     fsBtn.className = 'ig-vc-btn';
+    fsBtn.title = 'Fullscreen (f)';
     bar.appendChild(fsBtn);
 
     // ── sync ──
     function syncPlayback() {
-        playBtn.textContent = video.paused ? '▶' : '⏸';
+        playBtn.innerHTML = video.paused ? ICON.play : ICON.pause;
         if (isFinite(video.duration) && video.duration > 0) {
             seekBar.value = String(video.currentTime / video.duration);
             timeEl.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
         } else {
             timeEl.textContent = '';
         }
+        paintSliderFill(seekBar);
     }
     function syncVolume() {
-        muteBtn.textContent = isMuted(video) ? '🔇' : '🔊';
+        const muted = isMuted(video);
+        const vol = video.volume;
+        if (muted) {
+            muteBtn.innerHTML = ICON.volMuted;
+        } else if (vol < 0.5) {
+            muteBtn.innerHTML = ICON.volLow;
+        } else {
+            muteBtn.innerHTML = ICON.volHigh;
+        }
         volSlider.value = String(video.volume);
+        paintSliderFill(volSlider);
     }
     function syncFs() {
-        fsBtn.textContent = document.fullscreenElement ? '✕' : '⛶';
+        fsBtn.innerHTML = document.fullscreenElement ? ICON.fsExit : ICON.fsEnter;
     }
 
     // ── events ──
@@ -289,6 +430,7 @@ function createControlBar(video) {
     seekBar.addEventListener('input', (e) => {
         e.stopPropagation();
         if (isFinite(video.duration)) video.currentTime = parseFloat(e.target.value) * video.duration;
+        paintSliderFill(seekBar);
     });
 
     muteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(video); });
@@ -305,6 +447,7 @@ function createControlBar(video) {
             video.dataset.stickyUnmute = 'true';
             video.dataset.savedVolume = '';
         }
+        paintSliderFill(volSlider);
     });
 
     fsBtn.addEventListener('click', (e) => {
@@ -403,7 +546,7 @@ function createControlBar(video) {
             bar.style.display = 'flex';
             bar.style.left   = `${r.left}px`;
             bar.style.width  = `${r.width}px`;
-            bar.style.top    = `${r.bottom - 40}px`;
+            bar.style.top    = `${r.bottom - 44}px`;
         });
     }
 
