@@ -316,6 +316,12 @@ function enterVideoFullscreen(video) {
     video.style.setProperty('clip-path', 'none', 'important');
     video.style.setProperty('transform', 'none', 'important');
 
+    wrap.addEventListener('click', (e) => {
+        if (e.target === wrap || e.target === video) {
+            video.paused ? video.play() : video.pause();
+        }
+    });
+
     wrap.requestFullscreen().catch(() => restoreFromFullscreen(video));
 }
 
