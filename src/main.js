@@ -550,7 +550,35 @@ function createControlBar(video) {
         }
     }
 
+    function checkModalStatus() {
+        if (!document.body.contains(video)) {
+            document.removeEventListener('click', onClick);
+            window.removeEventListener('popstate', onPopState);
+            return;
+        }
+        if (!document.fullscreenElement && shouldHideBehindModal(video)) {
+            hideBar();
+        }
+    }
+
+    function onClick() {
+        setTimeout(checkModalStatus, 100);
+        setTimeout(checkModalStatus, 300);
+    }
+
+    function onPopState() {
+        setTimeout(checkModalStatus, 100);
+        setTimeout(checkModalStatus, 300);
+    }
+
+    document.addEventListener('click', onClick, { passive: true });
+    window.addEventListener('popstate', onPopState, { passive: true });
+
     function onMouseMove(e) {
+        if (!document.body.contains(video)) {
+            document.removeEventListener('mousemove', onMouseMove);
+            return;
+        }
         // Don't show bar for videos hidden behind modals
         if (!document.fullscreenElement && shouldHideBehindModal(video)) {
             if (bar.classList.contains('visible')) hideBar();
