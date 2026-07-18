@@ -250,11 +250,39 @@ function shouldHideBehindModal(video) {
     return false;
 }
 
-// Find Instagram's native mute wrapper (button + its background container).
-function findIgMuteWrapper(video) {
+// Find Instagram's native overlay wrappers (mute, tagged users, etc.)
+function findIgOverlayWrapper(video, selector, position) {
     let el = video.parentElement;
     for (let i = 0; i < 10 && el && el !== document.body; i++, el = el.parentElement) {
-        const btn = el.querySelector('[aria-label*="ute" i]');
+        let btn = el.querySelector(selector);
+
+        // Position-based fallback if selector doesn't match
+        if (!btn) {
+            const buttons = el.querySelectorAll('button, [role="button"]');
+            const videoRect = video.getBoundingClientRect();
+            if (videoRect.width > 0 && videoRect.height > 0) {
+                for (const b of buttons) {
+                    if (video._igVcBar && video._igVcBar.contains(b)) continue;
+                    const bRect = b.getBoundingClientRect();
+                    if (bRect.width === 0 || bRect.height === 0) continue;
+
+                    const bCenterX = bRect.left + bRect.width / 2;
+                    const bCenterY = bRect.top + bRect.height / 2;
+                    const videoCenterX = videoRect.left + videoRect.width / 2;
+                    const videoCenterY = videoRect.top + videoRect.height / 2;
+
+                    if (position === 'bottom-right' && bCenterX > videoCenterX && bCenterY > videoCenterY) {
+                        btn = b;
+                        break;
+                    }
+                    if (position === 'bottom-left' && bCenterX < videoCenterX && bCenterY > videoCenterY) {
+                        btn = b;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (btn) {
             let curr = btn;
             // Go up to 3 levels as long as they are small (or 0 size if not rendered yet)
@@ -274,6 +302,14 @@ function findIgMuteWrapper(video) {
         }
     }
     return null;
+}
+
+function findIgMuteWrapper(video) {
+    return findIgOverlayWrapper(video, '[aria-label*="ute" i]', 'bottom-right');
+}
+
+function findIgUsersWrapper(video) {
+    return findIgOverlayWrapper(video, '[aria-label*="people" i], [aria-label*="tag" i]', 'bottom-left');
 }
 
 // ── fullscreen wrapper ───────────────────────────────────────────────────────
@@ -528,26 +564,15 @@ function createControlBar(video) {
     // a document-level mousemove and check coordinates manually — this always works
     // regardless of what element is on top.
     let hideTimer = null;
-    let igMuteWrapper = null;
 
     function showBar() {
         clearTimeout(hideTimer);
         hideTimer = null;
         bar.classList.add('visible');
-        if (!igMuteWrapper) igMuteWrapper = findIgMuteWrapper(video);
-        if (igMuteWrapper) {
-            igMuteWrapper.style.display = 'none';
-            igMuteWrapper.style.visibility = 'hidden';
-        }
     }
 
     function hideBar() {
         bar.classList.remove('visible');
-        if (igMuteWrapper) {
-            igMuteWrapper.style.display = '';
-            igMuteWrapper.style.visibility = '';
-            igMuteWrapper = null;
-        }
     }
 
     function checkModalStatus() {
@@ -616,6 +641,25 @@ function createControlBar(video) {
             bar.style.left   = `${r.left}px`;
             bar.style.width  = `${r.width}px`;
             bar.style.top    = `${r.bottom - 44}px`;
+
+            // Always keep Instagram's native mute button hidden
+            const igMute = findIgMuteWrapper(video);
+            if (igMute) {
+                igMute.style.display = 'none';
+                igMute.style.visibility = 'hidden';
+            }
+
+            // Reposition the native tagged users button to top-left corner
+            const igUsers = findIgUsersWrapper(video);
+            if (igUsers) {
+                igUsers.style.setProperty('position', 'absolute', 'important');
+                igUsers.style.setProperty('top', '0', 'important');
+                igUsers.style.setProperty('left', '0', 'important');
+                igUsers.style.setProperty('bottom', 'auto', 'important');
+                igUsers.style.setProperty('right', 'auto', 'important');
+                igUsers.style.setProperty('display', 'block', 'important');
+                igUsers.style.setProperty('visibility', 'visible', 'important');
+            }
         });
     }
 
