@@ -206,26 +206,24 @@ function isMuted(video) {
 
 function toggleMute(video) {
     if (isMuted(video)) {
-        // Unmute: clear muted flag, restore volume
-        video.muted = false;
-        video.dataset.stickyUnmute = 'true';
-        if (video.volume === 0) {
-            video.volume = parseFloat(video.dataset.savedVolume) || 1;
-            video.dataset.savedVolume = '';
-        }
+        unmute(video);
     } else {
-        // Mute via volume so we don't fight our own interceptor
-        video.dataset.savedVolume = String(video.volume);
-        video.volume = 0;
-        video.dataset.stickyUnmute = '';
+        mute(video);
     }
 }
 
+function mute(video) {
+    video.dataset.savedVolume = String(video.volume);
+    video.dataset.stickyUnmute = '';
+    video.muted = true;
+    video.volume = 0;
+}
+
 function unmute(video) {
-    video.muted = false;
     video.dataset.stickyUnmute = 'true';
+    video.muted = false;
     if (video.volume === 0) {
-        video.volume = parseFloat(video.dataset.savedVolume) || 1;
+        video.volume = parseFloat(video.dataset.savedVolume) || 0.8;
         video.dataset.savedVolume = '';
     }
 }
@@ -257,7 +255,23 @@ function findIgMuteWrapper(video) {
     let el = video.parentElement;
     for (let i = 0; i < 10 && el && el !== document.body; i++, el = el.parentElement) {
         const btn = el.querySelector('[aria-label*="ute" i]');
-        if (btn) return btn.parentElement || btn;
+        if (btn) {
+            let curr = btn;
+            // Go up to 3 levels as long as they are small (or 0 size if not rendered yet)
+            for (let j = 0; j < 3; j++) {
+                const parent = curr.parentElement;
+                if (!parent || parent === video.parentElement || parent.contains(video) || parent === document.body) {
+                    break;
+                }
+                const rect = parent.getBoundingClientRect();
+                if (rect.width === 0 || (rect.width <= 60 && rect.height <= 60)) {
+                    curr = parent;
+                } else {
+                    break;
+                }
+            }
+            return curr;
+        }
     }
     return null;
 }
@@ -406,12 +420,15 @@ function createControlBar(video) {
         const vol = video.volume;
         if (muted) {
             muteBtn.innerHTML = ICON.volMuted;
-        } else if (vol < 0.5) {
-            muteBtn.innerHTML = ICON.volLow;
+            volSlider.value = '0';
         } else {
-            muteBtn.innerHTML = ICON.volHigh;
+            if (vol < 0.5) {
+                muteBtn.innerHTML = ICON.volLow;
+            } else {
+                muteBtn.innerHTML = ICON.volHigh;
+            }
+            volSlider.value = String(vol);
         }
-        volSlider.value = String(video.volume);
         paintSliderFill(volSlider);
     }
     function syncFs() {
@@ -441,11 +458,13 @@ function createControlBar(video) {
     volSlider.addEventListener('input', (e) => {
         e.stopPropagation();
         const val = parseFloat(e.target.value);
-        video.volume = val;
         if (val > 0) {
+            video.volume = val;
             video.muted = false;
             video.dataset.stickyUnmute = 'true';
             video.dataset.savedVolume = '';
+        } else {
+            mute(video);
         }
         paintSliderFill(volSlider);
     });
@@ -501,12 +520,19 @@ function createControlBar(video) {
         hideTimer = null;
         bar.classList.add('visible');
         if (!igMuteWrapper) igMuteWrapper = findIgMuteWrapper(video);
-        if (igMuteWrapper) igMuteWrapper.style.visibility = 'hidden';
+        if (igMuteWrapper) {
+            igMuteWrapper.style.display = 'none';
+            igMuteWrapper.style.visibility = 'hidden';
+        }
     }
 
     function hideBar() {
         bar.classList.remove('visible');
-        if (igMuteWrapper) { igMuteWrapper.style.visibility = ''; igMuteWrapper = null; }
+        if (igMuteWrapper) {
+            igMuteWrapper.style.display = '';
+            igMuteWrapper.style.visibility = '';
+            igMuteWrapper = null;
+        }
     }
 
     function onMouseMove(e) {
