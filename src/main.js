@@ -316,32 +316,15 @@ function createControlBar(video) {
         }
     });
 
-    // Track whether bar has been promoted to the top layer via popover.
-    let barIsPopover = false;
-
-    // On fullscreen enter: promote bar to browser top layer via the Popover API so
-    // it renders above the fullscreen element without being inside IG's container.
-    // This prevents clicks on our bar from propagating through IG's DOM hierarchy,
-    // which would otherwise trigger navigation on the explore page.
-    // On fullscreen exit: demote bar back to a normal element in body.
+    // On fullscreen enter: move bar into our fullscreen wrapper so it renders
+    // inside the fullscreen context and is interactive.
+    // On fullscreen exit: move bar back to body and restore the video.
     function onFullscreenChange() {
         const fsEl = document.fullscreenElement;
         if (fsEl && fsEl.contains(video)) {
-            if (typeof bar.showPopover === 'function' && !barIsPopover) {
-                bar.setAttribute('popover', 'manual');
-                bar.showPopover();
-                barIsPopover = true;
-            } else if (!barIsPopover) {
-                // Fallback for browsers without Popover API: move bar into fsEl.
-                fsEl.appendChild(bar);
-            }
+            // Bar goes inside the fullscreen wrapper
+            fsEl.appendChild(bar);
         } else if (!fsEl) {
-            if (barIsPopover) {
-                bar.style.display = 'none'; // prevent flash during popover teardown
-                bar.hidePopover();
-                bar.removeAttribute('popover');
-                barIsPopover = false;
-            }
             if (bar.parentElement !== document.body) {
                 document.body.appendChild(bar);
             }
@@ -384,6 +367,11 @@ function createControlBar(video) {
     }
 
     function onMouseMove(e) {
+        // Don't show bar for videos hidden behind modals
+        if (!document.fullscreenElement && shouldHideBehindModal(video)) {
+            if (bar.classList.contains('visible')) hideBar();
+            return;
+        }
         const vr = video.getBoundingClientRect();
         const br = bar.getBoundingClientRect();
         const overVideo = e.clientX >= vr.left && e.clientX <= vr.right &&
@@ -392,6 +380,7 @@ function createControlBar(video) {
                           e.clientX >= br.left && e.clientX <= br.right &&
                           e.clientY >= br.top  && e.clientY <= br.bottom;
         if (overVideo || overBar) {
+            reposition();
             showBar();
         } else if (!hideTimer) {
             hideTimer = setTimeout(() => { hideTimer = null; hideBar(); }, 300);
@@ -403,7 +392,7 @@ function createControlBar(video) {
     // ── position ──
     let rafId = null;
     function reposition() {
-        if (rafId !== null) return;
+        if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
             rafId = null;
             const r = video.getBoundingClientRect();
@@ -425,6 +414,7 @@ function createControlBar(video) {
         if (entries[0].isIntersecting) reposition();
     }, { threshold: 0.01 }).observe(video);
     reposition();
+    bar._reposition = reposition;
 }
 
 // ── video init ────────────────────────────────────────────────────────────────
@@ -438,6 +428,7 @@ function updateVideo(video) {
         if (!document.contains(bar)) {
             video._igVcBar = null;
         } else {
+            if (bar._reposition) bar._reposition();
             return;
         }
     }
