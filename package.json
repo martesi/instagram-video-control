@@ -5,9 +5,14 @@
   "description": "Instagram video controls with keyboard shortcuts and persistent unmute",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "lint": "biome check src/"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
+    "@types/tampermonkey": "^5.0.5",
+    "lefthook": "^2.1.10",
+    "typescript": "^7.0.2",
     "vite": "^5.4.0",
     "vite-plugin-monkey": "^4.0.0"
   }
