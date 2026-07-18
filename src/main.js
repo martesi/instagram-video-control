@@ -1,6 +1,24 @@
 import { GM_addStyle } from '$';
 
 GM_addStyle(`
+    /* Fix video cropping in fullscreen */
+    :fullscreen video,
+    :-webkit-full-screen video,
+    video:fullscreen,
+    video:-webkit-full-screen {
+        object-fit: contain !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: #000 !important;
+    }
+    .ig-vc-fs-wrap {
+        background: #000;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
     .ig-vc-bar {
         position: fixed;
         height: 40px;
@@ -15,6 +33,11 @@ GM_addStyle(`
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.15s ease;
+        /* Reset popover UA styles when bar is promoted to top layer */
+        border: none;
+        margin: 0;
+        color-scheme: unset;
+        overflow: visible;
     }
     .ig-vc-bar.visible {
         opacity: 1;
@@ -133,6 +156,72 @@ function findIgMuteWrapper(video) {
     return null;
 }
 
+// ── fullscreen wrapper ───────────────────────────────────────────────────────
+// Move the video into a clean container we control, fullscreen that container,
+// and force-override the video's inline styles so IG's cropping is removed.
+
+const FS_OVERRIDE_PROPS = [
+    'object-fit', 'width', 'height', 'max-width', 'max-height',
+    'min-width', 'min-height', 'clip-path', 'clip', 'position',
+    'top', 'left', 'right', 'bottom', 'margin', 'padding',
+    'transform', 'aspect-ratio',
+];
+
+function enterVideoFullscreen(video) {
+    if (document.fullscreenElement) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'ig-vc-fs-wrap';
+
+    // Save original state
+    video._igVcFsState = {
+        parent: video.parentElement,
+        next: video.nextSibling,
+        wrap,
+        origStyle: video.getAttribute('style') || '',
+    };
+
+    // Move video into our wrapper
+    wrap.appendChild(video);
+    document.body.appendChild(wrap);
+
+    // Force-override inline styles that IG uses to crop
+    for (const prop of FS_OVERRIDE_PROPS) video.style.removeProperty(prop);
+    video.style.setProperty('object-fit', 'contain', 'important');
+    video.style.setProperty('width', '100%', 'important');
+    video.style.setProperty('height', '100%', 'important');
+    video.style.setProperty('max-width', '100%', 'important');
+    video.style.setProperty('max-height', '100%', 'important');
+    video.style.setProperty('position', 'static', 'important');
+    video.style.setProperty('clip-path', 'none', 'important');
+    video.style.setProperty('transform', 'none', 'important');
+
+    wrap.requestFullscreen().catch(() => restoreFromFullscreen(video));
+}
+
+function restoreFromFullscreen(video) {
+    const state = video._igVcFsState;
+    if (!state) return;
+
+    // Restore original inline styles
+    if (state.origStyle) {
+        video.setAttribute('style', state.origStyle);
+    } else {
+        video.removeAttribute('style');
+    }
+
+    // Move video back to its original position
+    if (state.next && state.parent.contains(state.next)) {
+        state.parent.insertBefore(video, state.next);
+    } else if (state.parent && document.contains(state.parent)) {
+        state.parent.appendChild(video);
+    }
+
+    // Clean up wrapper
+    state.wrap.remove();
+    delete video._igVcFsState;
+}
+
 // ── control bar ───────────────────────────────────────────────────────────────
 
 function createControlBar(video) {
@@ -223,21 +312,41 @@ function createControlBar(video) {
         if (document.fullscreenElement) {
             document.exitFullscreen();
         } else {
-            // Fullscreen the video's parent so bar can travel in on fullscreenchange.
-            const c = video.parentElement;
-            (c ? c.requestFullscreen() : Promise.reject()).catch(() => video.requestFullscreen());
+            enterVideoFullscreen(video);
         }
     });
 
-    // Move bar into the fullscreen element so it's visible in fullscreen mode.
+    // Track whether bar has been promoted to the top layer via popover.
+    let barIsPopover = false;
+
+    // On fullscreen enter: promote bar to browser top layer via the Popover API so
+    // it renders above the fullscreen element without being inside IG's container.
+    // This prevents clicks on our bar from propagating through IG's DOM hierarchy,
+    // which would otherwise trigger navigation on the explore page.
+    // On fullscreen exit: demote bar back to a normal element in body.
     function onFullscreenChange() {
         const fsEl = document.fullscreenElement;
         if (fsEl && fsEl.contains(video)) {
-            fsEl.appendChild(bar);
-            bar.style.position = 'fixed'; // fixed inside fullscreen context = viewport-relative
+            if (typeof bar.showPopover === 'function' && !barIsPopover) {
+                bar.setAttribute('popover', 'manual');
+                bar.showPopover();
+                barIsPopover = true;
+            } else if (!barIsPopover) {
+                // Fallback for browsers without Popover API: move bar into fsEl.
+                fsEl.appendChild(bar);
+            }
         } else if (!fsEl) {
-            document.body.appendChild(bar);
-            bar.style.position = 'fixed';
+            if (barIsPopover) {
+                bar.style.display = 'none'; // prevent flash during popover teardown
+                bar.hidePopover();
+                bar.removeAttribute('popover');
+                barIsPopover = false;
+            }
+            if (bar.parentElement !== document.body) {
+                document.body.appendChild(bar);
+            }
+            // Restore video to its original container
+            restoreFromFullscreen(video);
         }
         syncFs();
         reposition();
@@ -298,7 +407,7 @@ function createControlBar(video) {
         rafId = requestAnimationFrame(() => {
             rafId = null;
             const r = video.getBoundingClientRect();
-            if (r.width === 0 || shouldHideBehindModal(video)) {
+            if (r.width === 0 || (!document.fullscreenElement && shouldHideBehindModal(video))) {
                 bar.style.display = 'none';
                 return;
             }
@@ -378,8 +487,7 @@ document.addEventListener('keydown', (e) => {
             if (document.fullscreenElement) {
                 document.exitFullscreen();
             } else {
-                const c = video.parentElement;
-                (c ? c.requestFullscreen() : Promise.reject()).catch(() => video.requestFullscreen());
+                enterVideoFullscreen(video);
             }
             break;
         case 'm': toggleMute(video); break;
