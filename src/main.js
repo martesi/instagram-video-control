@@ -467,6 +467,15 @@ function createControlBar(video) {
             mute(video);
         }
         paintSliderFill(volSlider);
+
+        // Update the mute button icon dynamically during drag
+        if (isMuted(video)) {
+            muteBtn.innerHTML = ICON.volMuted;
+        } else if (val < 0.5) {
+            muteBtn.innerHTML = ICON.volLow;
+        } else {
+            muteBtn.innerHTML = ICON.volHigh;
+        }
     });
 
     fsBtn.addEventListener('click', (e) => {
