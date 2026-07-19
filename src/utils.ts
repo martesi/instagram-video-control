@@ -3,6 +3,55 @@ export function fmt(s: number) {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 }
 
+export function isVisible(el: Element): boolean {
+  if (typeof el.checkVisibility === 'function') {
+    return el.checkVisibility({
+      checkOpacity: true,
+      checkVisibilityCSS: true,
+    })
+  }
+  // Fallback for environments without Element.checkVisibility support.
+  let node: Element | null = el
+  while (node && node !== document.body) {
+    const cs = getComputedStyle(node)
+    if (
+      cs.display === 'none' ||
+      cs.visibility === 'hidden' ||
+      cs.visibility === 'collapse' ||
+      cs.opacity === '0'
+    ) {
+      return false
+    }
+    node = node.parentElement
+  }
+  return true
+}
+
+/**
+ * Whether `video` is actually hit-testable at viewport point (x, y) — i.e.
+ * genuinely rendered there, not just geometrically overlapping. Unlike
+ * elementFromPoint() (topmost hit only), elementsFromPoint() returns every
+ * element hit-testable at that point in stacking order, so this correctly
+ * matches even when something else (an IG overlay button, our own bar, etc.)
+ * is stacked above the video, while still excluding a video that's clipped
+ * out of view by an ancestor's `overflow: hidden` (e.g. an inactive
+ * carousel slide) — clipped elements never appear in that list at all.
+ */
+export function isPointOverVideo(
+  video: HTMLVideoElement,
+  x: number,
+  y: number
+): boolean {
+  if (typeof document.elementsFromPoint === 'function') {
+    return document.elementsFromPoint(x, y).includes(video)
+  }
+  // Fallback for environments without elementsFromPoint: topmost hit only,
+  // accepting the (rare) risk of a false match when something with a larger
+  // hit area sits directly above the video.
+  const top = document.elementFromPoint(x, y)
+  return top === video || (!!top && video.contains(top))
+}
+
 export function shouldHideBehindModal(video: HTMLVideoElement) {
   const dialogs = document.querySelectorAll('[role="dialog"]')
   for (const d of dialogs) {

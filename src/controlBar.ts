@@ -6,6 +6,8 @@ import {
   findIgMuteWrapper,
   findIgUsersWrapper,
   fmt,
+  isPointOverVideo,
+  isVisible,
   shouldHideBehindModal,
 } from './utils'
 
@@ -221,17 +223,33 @@ export function createControlBar(video: HTMLVideoElement) {
       document.removeEventListener('mousemove', onMouseMove)
       return
     }
-    if (!document.fullscreenElement && shouldHideBehindModal(video)) {
+    if (
+      (!document.fullscreenElement && shouldHideBehindModal(video)) ||
+      !isVisible(video)
+    ) {
       if (bar.classList.contains('visible')) hideBar()
       return
     }
     const vr = video.getBoundingClientRect()
     const br = bar.getBoundingClientRect()
-    const overVideo =
+    const inVideoBounds =
       e.clientX >= vr.left &&
       e.clientX <= vr.right &&
       e.clientY >= vr.top &&
       e.clientY <= vr.bottom
+    // A card clipped by a carousel's `overflow: hidden` viewport (or scrolled
+    // out of a virtualized list) still reports a full-size bounding rect even
+    // though nothing is actually painted there, so a bounds check alone isn't
+    // enough. elementFromPoint() (topmost hit only) isn't safe here either:
+    // when `video` is clipped, the element it returns is typically the
+    // clipping container itself, which is an *ancestor* of the clipped
+    // video — so an ancestor-based fallback would wrongly match again.
+    // elementsFromPoint() returns every element actually hit-testable at
+    // that point, in stacking order, and clipped-away elements never appear
+    // in it at all, so membership is the correct check regardless of what's
+    // stacked on top of the video.
+    const overVideo =
+      inVideoBounds && isPointOverVideo(video, e.clientX, e.clientY)
     const overBar =
       br.width > 0 &&
       e.clientX >= br.left &&
@@ -259,7 +277,8 @@ export function createControlBar(video: HTMLVideoElement) {
       const r = video.getBoundingClientRect()
       if (
         r.width === 0 ||
-        (!document.fullscreenElement && shouldHideBehindModal(video))
+        (!document.fullscreenElement && shouldHideBehindModal(video)) ||
+        !isVisible(video)
       ) {
         bar.style.display = 'none'
         return
