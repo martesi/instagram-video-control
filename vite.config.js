@@ -21,11 +21,11 @@ export default defineConfig({
       },
       userscript: {
         name: 'Video Controls for Instagram',
-        namespace: 'https://github.com/appel/userscripts',
+        namespace: 'github.com/martesi',
         version: pkg.version,
         description:
           'Instagram video controls with keyboard shortcuts and volume-based mute toggle.',
-        author: 'Ap',
+        author: 'Martes',
         match: ['https://www.instagram.com/', 'https://www.instagram.com/*'],
         icon: 'https://www.google.com/s2/favicons?sz=64&domain=instagram.com',
         license: 'MIT',
